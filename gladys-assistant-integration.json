@@ -1,177 +1,654 @@
 {
   "manifest_version": 1,
   "type": "device",
-  "name": "Demo Devices Template",
+  "name": "FRITZ!SmartHome",
   "description": {
-    "en": "Starter template showing sensors, a switch, a dimmable light and a smart plug.",
-    "fr": "Template de démarrage : capteurs, interrupteur, lampe variable et prise connectée."
+    "en": "Plugs, radiator thermostats, blinds, lamps and buttons of your FRITZ!Box (DECT).",
+    "fr": "Prises, têtes thermostatiques, volets, lampes et boutons de votre FRITZ!Box (DECT).",
+    "de": "Steckdosen, Heizkörperregler, Rollläden, Lampen und Taster deiner FRITZ!Box (DECT).",
+    "es": "Enchufes, termostatos, persianas, lámparas y botones de su FRITZ!Box (DECT)."
   },
   "version": "1.0.0",
-  "docker_image": "ghcr.io/gladysassistant/integration-template-js:1.0.0",
+  "docker_image": "ghcr.io/guim31/gladys-fritz-smarthome:1.0.0",
   "gladys_version": ">=5.1.0",
-  "cover_image": "https://raw.githubusercontent.com/GladysAssistant/integration-template-js/master/cover.png",
-  "categories": ["lighting", "security", "environment"],
-  "transports": ["local", "cloud"],
+  "cover_image": "https://raw.githubusercontent.com/guim31/gladys-fritz-smarthome/main/cover.png",
+  "categories": ["climate", "energy", "protocols"],
+  "transports": ["local"],
+  "network_discovery": [
+    {
+      "type": "ssdp",
+      "st": "urn:dslforum-org:device:InternetGatewayDevice:1"
+    }
+  ],
   "config_schema": [
     {
       "key": "intro",
       "type": "section",
-      "label": { "en": "Getting started", "fr": "Pour commencer" },
+      "label": {
+        "en": "Connect your FRITZ!Box",
+        "fr": "Connecter votre FRITZ!Box",
+        "de": "Deine FRITZ!Box verbinden",
+        "es": "Conectar su FRITZ!Box"
+      },
       "description": {
-        "en": "The demo weather station reads real data from the free Open-Meteo API: pick the coordinates to observe. No account, no API key.",
-        "fr": "La station météo de démonstration lit de vraies données via l'API gratuite Open-Meteo : choisissez les coordonnées à observer. Pas de compte, pas de clé d'API."
+        "en": "Your DECT smart home devices (plugs, radiator thermostats, blinds, lamps, buttons, detectors) are read from the FRITZ!Box. In the FRITZ!Box (http://fritz.box), create a user with the \"Smart Home\" right in System > FRITZ!Box Users. Then run \"Test the connection\" and add your devices in the Discover tab.",
+        "fr": "Vos appareils domotiques DECT (prises, têtes thermostatiques, volets, lampes, boutons, détecteurs) sont lus dans la FRITZ!Box. Dans la FRITZ!Box (http://fritz.box), créez un utilisateur avec le droit « Smart Home » dans Système > Utilisateurs FRITZ!Box. Puis lancez « Tester la connexion » et ajoutez vos appareils dans l'onglet Découverte.",
+        "de": "Deine DECT-Smart-Home-Geräte (Steckdosen, Heizkörperregler, Rollläden, Lampen, Taster, Melder) werden aus der FRITZ!Box gelesen. Lege in der FRITZ!Box (http://fritz.box) unter System > FRITZ!Box-Benutzer einen Benutzer mit dem Recht „Smart Home“ an. Starte dann „Verbindung testen“ und füge deine Geräte im Tab „Entdecken“ hinzu.",
+        "es": "Sus dispositivos domóticos DECT (enchufes, termostatos de radiador, persianas, lámparas, botones, detectores) se leen en la FRITZ!Box. En la FRITZ!Box (http://fritz.box), cree un usuario con el permiso «Smart Home» en Sistema > Usuarios de FRITZ!Box. Después, ejecute «Probar la conexión» y añada sus dispositivos en la pestaña Descubrir."
       },
       "links": [
         {
-          "url": "https://open-meteo.com/en/docs",
-          "label": { "en": "Open-Meteo documentation", "fr": "Documentation Open-Meteo" }
+          "url": "https://github.com/guim31/gladys-fritz-smarthome/blob/main/docs/en.md",
+          "label": {
+            "en": "Setup guide",
+            "fr": "Guide d'installation",
+            "de": "Installationsanleitung",
+            "es": "Guía de instalación"
+          }
         }
       ]
     },
     {
-      "key": "latitude",
-      "type": "number",
-      "label": { "en": "Latitude", "fr": "Latitude" },
-      "description": {
-        "en": "Latitude used for the demo weather sensor.",
-        "fr": "Latitude utilisée par le capteur météo de démonstration."
-      },
-      "placeholder": { "en": "e.g. 48.8566", "fr": "ex. 48.8566" },
-      "required": true,
-      "default": 48.8566,
-      "min": -90,
-      "max": 90
-    },
-    {
-      "key": "longitude",
-      "type": "number",
-      "label": { "en": "Longitude", "fr": "Longitude" },
-      "description": {
-        "en": "Longitude used for the demo weather sensor.",
-        "fr": "Longitude utilisée par le capteur météo de démonstration."
-      },
-      "placeholder": { "en": "e.g. 2.3522", "fr": "ex. 2.3522" },
-      "required": true,
-      "default": 2.3522,
-      "min": -180,
-      "max": 180
-    },
-    {
-      "key": "unit",
-      "type": "select",
-      "label": { "en": "Temperature unit", "fr": "Unité de température" },
+      "key": "host",
+      "type": "string",
       "required": false,
-      "default": "celsius",
+      "label": {
+        "en": "Address of the FRITZ!Box",
+        "fr": "Adresse de la FRITZ!Box",
+        "de": "Adresse der FRITZ!Box",
+        "es": "Dirección de la FRITZ!Box"
+      },
+      "description": {
+        "en": "Leave empty to find it automatically on the network.",
+        "fr": "Laissez vide pour la trouver automatiquement sur le réseau.",
+        "de": "Leer lassen, um sie automatisch im Netzwerk zu finden.",
+        "es": "Déjelo vacío para encontrarla automáticamente en la red."
+      },
+      "placeholder": {
+        "en": "e.g. 192.168.178.1",
+        "fr": "ex. 192.168.178.1",
+        "de": "z. B. 192.168.178.1",
+        "es": "p. ej. 192.168.178.1"
+      }
+    },
+    {
+      "key": "username",
+      "type": "string",
+      "required": true,
+      "label": {
+        "en": "FRITZ!Box user name",
+        "fr": "Nom d'utilisateur FRITZ!Box",
+        "de": "FRITZ!Box-Benutzername",
+        "es": "Nombre de usuario de FRITZ!Box"
+      },
+      "description": {
+        "en": "A user of System > FRITZ!Box Users, with the \"Smart Home\" right.",
+        "fr": "Un utilisateur de Système > Utilisateurs FRITZ!Box, avec le droit « Smart Home ».",
+        "de": "Ein Benutzer aus System > FRITZ!Box-Benutzer mit dem Recht „Smart Home“.",
+        "es": "Un usuario de Sistema > Usuarios de FRITZ!Box, con el permiso «Smart Home»."
+      },
+      "placeholder": {
+        "en": "e.g. gladys",
+        "fr": "ex. gladys",
+        "de": "z. B. gladys",
+        "es": "p. ej. gladys"
+      }
+    },
+    {
+      "key": "password",
+      "type": "secret",
+      "required": true,
+      "label": {
+        "en": "Password",
+        "fr": "Mot de passe",
+        "de": "Kennwort",
+        "es": "Contraseña"
+      }
+    },
+    {
+      "key": "https",
+      "type": "boolean",
+      "required": false,
+      "default": false,
+      "label": {
+        "en": "Encrypted connection (HTTPS)",
+        "fr": "Connexion chiffrée (HTTPS)",
+        "de": "Verschlüsselte Verbindung (HTTPS)",
+        "es": "Conexión cifrada (HTTPS)"
+      },
+      "description": {
+        "en": "Port 443 instead of 80. The box's own certificate is not checked.",
+        "fr": "Port 443 au lieu de 80. Le certificat de la box n'est pas vérifié.",
+        "de": "Port 443 statt 80. Das eigene Zertifikat der Box wird nicht geprüft.",
+        "es": "Puerto 443 en lugar de 80. El certificado propio de la box no se comprueba."
+      }
+    },
+    {
+      "key": "poll_interval",
+      "type": "select",
+      "required": false,
+      "default": "30",
+      "label": {
+        "en": "Refresh interval",
+        "fr": "Intervalle de rafraîchissement",
+        "de": "Aktualisierungsintervall",
+        "es": "Intervalo de actualización"
+      },
+      "description": {
+        "en": "How often the devices are read from the box. Button presses are seen at this pace.",
+        "fr": "Fréquence de lecture des appareils dans la box. Les appuis sur les boutons sont vus à ce rythme.",
+        "de": "Wie oft die Geräte aus der Box gelesen werden. Tastendrücke werden in diesem Takt erkannt.",
+        "es": "Con qué frecuencia se leen los dispositivos de la box. Las pulsaciones de botones se ven a este ritmo."
+      },
       "options": [
-        { "value": "celsius", "label": { "en": "Celsius", "fr": "Celsius" } },
-        { "value": "fahrenheit", "label": { "en": "Fahrenheit", "fr": "Fahrenheit" } }
+        {
+          "value": "10",
+          "label": {
+            "en": "10 seconds",
+            "fr": "10 secondes",
+            "de": "10 Sekunden",
+            "es": "10 segundos"
+          }
+        },
+        {
+          "value": "30",
+          "label": {
+            "en": "30 seconds",
+            "fr": "30 secondes",
+            "de": "30 Sekunden",
+            "es": "30 segundos"
+          }
+        },
+        {
+          "value": "60",
+          "label": {
+            "en": "1 minute",
+            "fr": "1 minute",
+            "de": "1 Minute",
+            "es": "1 minuto"
+          }
+        },
+        {
+          "value": "120",
+          "label": {
+            "en": "2 minutes",
+            "fr": "2 minutes",
+            "de": "2 Minuten",
+            "es": "2 minutos"
+          }
+        }
       ]
     },
     {
-      "key": "poll_frequency",
-      "type": "number",
-      "label": { "en": "Refresh interval (s)", "fr": "Intervalle de rafraîchissement (s)" },
-      "description": {
-        "en": "How often sensors are polled, in seconds (one minute minimum).",
-        "fr": "Fréquence d'interrogation des capteurs, en secondes (une minute minimum)."
-      },
+      "key": "language",
+      "type": "select",
       "required": false,
-      "default": 300,
-      "min": 60,
-      "max": 3600
+      "default": "fr",
+      "label": {
+        "en": "Language of the feature names",
+        "fr": "Langue des noms de fonctionnalités",
+        "de": "Sprache der Funktionsnamen",
+        "es": "Idioma de los nombres de las funciones"
+      },
+      "description": {
+        "en": "Names given to the features of new devices, and language of the messages.",
+        "fr": "Noms donnés aux fonctionnalités des nouveaux appareils, et langue des messages.",
+        "de": "Namen der Funktionen neuer Geräte und Sprache der Meldungen.",
+        "es": "Nombres de las funciones de los nuevos dispositivos e idioma de los mensajes."
+      },
+      "options": [
+        {
+          "value": "en",
+          "label": {
+            "en": "English",
+            "fr": "Anglais",
+            "de": "Englisch",
+            "es": "Inglés"
+          }
+        },
+        {
+          "value": "fr",
+          "label": {
+            "en": "French",
+            "fr": "Français",
+            "de": "Französisch",
+            "es": "Francés"
+          }
+        },
+        {
+          "value": "de",
+          "label": {
+            "en": "German",
+            "fr": "Allemand",
+            "de": "Deutsch",
+            "es": "Alemán"
+          }
+        },
+        {
+          "value": "es",
+          "label": {
+            "en": "Spanish",
+            "fr": "Espagnol",
+            "de": "Spanisch",
+            "es": "Español"
+          }
+        }
+      ]
     }
   ],
   "actions": [
     {
-      "key": "test_weather",
-      "label": { "en": "Test the weather provider", "fr": "Tester le fournisseur météo" },
-      "timeout_seconds": 30
-    },
-    {
-      "key": "identify",
-      "label": { "en": "Identify a device", "fr": "Identifier un appareil" },
-      "fields": [
-        {
-          "key": "device",
-          "type": "select",
-          "source": "devices",
-          "label": { "en": "Device", "fr": "Appareil" },
-          "required": true
-        }
-      ]
+      "key": "test_connection",
+      "label": {
+        "en": "Test the connection",
+        "fr": "Tester la connexion",
+        "de": "Verbindung testen",
+        "es": "Probar la conexión"
+      },
+      "description": {
+        "en": "Logs in to the FRITZ!Box, counts the smart home devices and lists them in the Discover tab.",
+        "fr": "Se connecte à la FRITZ!Box, compte les appareils Smart Home et les liste dans l'onglet Découverte.",
+        "de": "Meldet sich an der FRITZ!Box an, zählt die Smart-Home-Geräte und listet sie im Tab „Entdecken“ auf.",
+        "es": "Inicia sesión en la FRITZ!Box, cuenta los dispositivos Smart Home y los enumera en la pestaña Descubrir."
+      },
+      "timeout_seconds": 60
     }
   ],
   "scene_triggers": [
     {
-      "key": "motion_detected",
-      "label": { "en": "Motion detected", "fr": "Mouvement détecté" },
+      "key": "button_pressed",
+      "label": {
+        "en": "FRITZ!DECT button pressed",
+        "fr": "Bouton FRITZ!DECT appuyé",
+        "de": "FRITZ!DECT-Taster gedrückt",
+        "es": "Botón FRITZ!DECT pulsado"
+      },
       "description": {
-        "en": "A demo motion sensor saw a person or an animal move.",
-        "fr": "Un détecteur de démonstration a vu bouger une personne ou un animal."
+        "en": "A FRITZ!DECT 400 or 440 button was pressed (seen at the next read of the box).",
+        "fr": "Un bouton FRITZ!DECT 400 ou 440 a été appuyé (vu à la lecture suivante de la box).",
+        "de": "Ein FRITZ!DECT 400 oder 440 wurde gedrückt (beim nächsten Lesen der Box erkannt).",
+        "es": "Se ha pulsado un botón FRITZ!DECT 400 o 440 (visto en la siguiente lectura de la box)."
       },
       "fields": [
         {
           "key": "device",
           "type": "select",
           "source": "devices",
-          "label": { "en": "Sensor", "fr": "Détecteur" }
+          "label": {
+            "en": "Button device (optional)",
+            "fr": "Bouton (facultatif)",
+            "de": "Taster (optional)",
+            "es": "Botón (opcional)"
+          }
         },
         {
-          "key": "target",
-          "type": "multi_select",
-          "label": { "en": "What moved", "fr": "Ce qui a bougé" },
+          "key": "button",
+          "type": "select",
+          "label": {
+            "en": "Which button (optional)",
+            "fr": "Quelle touche (facultatif)",
+            "de": "Welche Taste (optional)",
+            "es": "Qué tecla (opcional)"
+          },
           "options": [
-            { "value": "person", "label": { "en": "Person", "fr": "Personne" } },
-            { "value": "animal", "label": { "en": "Animal", "fr": "Animal" } }
+            {
+              "value": "main",
+              "label": {
+                "en": "FRITZ!DECT 400",
+                "fr": "FRITZ!DECT 400",
+                "de": "FRITZ!DECT 400",
+                "es": "FRITZ!DECT 400"
+              }
+            },
+            {
+              "value": "top_right",
+              "label": {
+                "en": "Top right (440)",
+                "fr": "En haut à droite (440)",
+                "de": "Oben rechts (440)",
+                "es": "Arriba a la derecha (440)"
+              }
+            },
+            {
+              "value": "bottom_right",
+              "label": {
+                "en": "Bottom right (440)",
+                "fr": "En bas à droite (440)",
+                "de": "Unten rechts (440)",
+                "es": "Abajo a la derecha (440)"
+              }
+            },
+            {
+              "value": "bottom_left",
+              "label": {
+                "en": "Bottom left (440)",
+                "fr": "En bas à gauche (440)",
+                "de": "Unten links (440)",
+                "es": "Abajo a la izquierda (440)"
+              }
+            },
+            {
+              "value": "top_left",
+              "label": {
+                "en": "Top left (440)",
+                "fr": "En haut à gauche (440)",
+                "de": "Oben links (440)",
+                "es": "Arriba a la izquierda (440)"
+              }
+            }
+          ]
+        },
+        {
+          "key": "press",
+          "type": "select",
+          "label": {
+            "en": "Press (optional)",
+            "fr": "Appui (facultatif)",
+            "de": "Drücken (optional)",
+            "es": "Pulsación (opcional)"
+          },
+          "options": [
+            {
+              "value": "short",
+              "label": {
+                "en": "Short",
+                "fr": "Court",
+                "de": "Kurz",
+                "es": "Corta"
+              }
+            },
+            {
+              "value": "long",
+              "label": {
+                "en": "Long (400)",
+                "fr": "Long (400)",
+                "de": "Lang (400)",
+                "es": "Larga (400)"
+              }
+            }
           ]
         }
       ],
       "variables": [
         {
-          "key": "target",
+          "key": "device_name",
           "type": "string",
-          "label": { "en": "What moved", "fr": "Ce qui a bougé" }
+          "label": {
+            "en": "Device name",
+            "fr": "Nom de l'appareil",
+            "de": "Gerätename",
+            "es": "Nombre del dispositivo"
+          }
+        },
+        {
+          "key": "button",
+          "type": "string",
+          "label": {
+            "en": "Button",
+            "fr": "Touche",
+            "de": "Taste",
+            "es": "Tecla"
+          }
+        },
+        {
+          "key": "press",
+          "type": "string",
+          "label": {
+            "en": "Press",
+            "fr": "Appui",
+            "de": "Drücken",
+            "es": "Pulsación"
+          }
+        }
+      ]
+    },
+    {
+      "key": "window_open_detected",
+      "label": {
+        "en": "Open window detected",
+        "fr": "Fenêtre ouverte détectée",
+        "de": "Offenes Fenster erkannt",
+        "es": "Ventana abierta detectada"
+      },
+      "description": {
+        "en": "A radiator thermostat entered its \"window open\" mode: it closed its valve.",
+        "fr": "Une tête thermostatique est passée en mode « fenêtre ouverte » : elle a fermé sa vanne.",
+        "de": "Ein Heizkörperregler ist in den Fenster-offen-Modus gewechselt: Er hat sein Ventil geschlossen.",
+        "es": "Un termostato de radiador ha pasado al modo «ventana abierta»: ha cerrado su válvula."
+      },
+      "fields": [
+        {
+          "key": "device",
+          "type": "select",
+          "source": "devices",
+          "label": {
+            "en": "Thermostat (optional)",
+            "fr": "Tête thermostatique (facultatif)",
+            "de": "Heizkörperregler (optional)",
+            "es": "Termostato (opcional)"
+          }
+        }
+      ],
+      "variables": [
+        {
+          "key": "device_name",
+          "type": "string",
+          "label": {
+            "en": "Device name",
+            "fr": "Nom de l'appareil",
+            "de": "Gerätename",
+            "es": "Nombre del dispositivo"
+          }
+        },
+        {
+          "key": "minutes",
+          "type": "number",
+          "label": {
+            "en": "Minutes before it heats again",
+            "fr": "Minutes avant de rechauffer",
+            "de": "Minuten bis zum erneuten Heizen",
+            "es": "Minutos hasta volver a calentar"
+          }
+        }
+      ]
+    },
+    {
+      "key": "battery_low",
+      "label": {
+        "en": "Battery low",
+        "fr": "Pile faible",
+        "de": "Batterie schwach",
+        "es": "Batería baja"
+      },
+      "description": {
+        "en": "A FRITZ!DECT device reports a low battery.",
+        "fr": "Un appareil FRITZ!DECT signale une pile faible.",
+        "de": "Ein FRITZ!DECT-Gerät meldet eine schwache Batterie.",
+        "es": "Un dispositivo FRITZ!DECT indica batería baja."
+      },
+      "fields": [
+        {
+          "key": "device",
+          "type": "select",
+          "source": "devices",
+          "label": {
+            "en": "Device (optional)",
+            "fr": "Appareil (facultatif)",
+            "de": "Gerät (optional)",
+            "es": "Dispositivo (opcional)"
+          }
+        }
+      ],
+      "variables": [
+        {
+          "key": "device_name",
+          "type": "string",
+          "label": {
+            "en": "Device name",
+            "fr": "Nom de l'appareil",
+            "de": "Gerätename",
+            "es": "Nombre del dispositivo"
+          }
+        },
+        {
+          "key": "battery",
+          "type": "number",
+          "label": {
+            "en": "Battery level (%)",
+            "fr": "Niveau de pile (%)",
+            "de": "Batteriestand (%)",
+            "es": "Nivel de batería (%)"
+          }
         }
       ]
     }
   ],
   "scene_actions": [
     {
-      "key": "identify_device",
-      "label": { "en": "Identify a device", "fr": "Identifier un appareil" },
-      "description": {
-        "en": "Make a device signal itself (the demo light blinks).",
-        "fr": "Fait se signaler un appareil (la lampe de démonstration clignote)."
+      "key": "set_thermostat_mode",
+      "label": {
+        "en": "Set a radiator thermostat",
+        "fr": "Régler une tête thermostatique",
+        "de": "Heizkörperregler einstellen",
+        "es": "Ajustar un termostato de radiador"
       },
-      "timeout_seconds": 15,
+      "description": {
+        "en": "Comfort or eco temperature of the FRITZ!Box, boost or \"window open\" mode for a while (24 h at most), or end them.",
+        "fr": "Température confort ou éco de la FRITZ!Box, boost ou mode « fenêtre ouverte » pour un temps (24 h au plus), ou leur fin.",
+        "de": "Komfort- oder Absenktemperatur der FRITZ!Box, Boost oder Fenster-offen-Modus für eine Weile (höchstens 24 h) oder deren Ende.",
+        "es": "Temperatura de confort o eco de la FRITZ!Box, boost o modo «ventana abierta» por un tiempo (24 h como máximo), o su fin."
+      },
+      "timeout_seconds": 30,
       "fields": [
         {
           "key": "device",
           "type": "select",
           "source": "devices",
-          "label": { "en": "Device", "fr": "Appareil" },
-          "required": true
-        }
-      ],
-      "outputs": [
+          "required": true,
+          "label": {
+            "en": "Thermostat",
+            "fr": "Tête thermostatique",
+            "de": "Heizkörperregler",
+            "es": "Termostato"
+          }
+        },
         {
-          "key": "signalled",
-          "type": "boolean",
-          "label": { "en": "Device signalled", "fr": "Appareil signalé" }
+          "key": "mode",
+          "type": "select",
+          "required": true,
+          "label": {
+            "en": "Mode",
+            "fr": "Mode",
+            "de": "Modus",
+            "es": "Modo"
+          },
+          "options": [
+            {
+              "value": "comfort",
+              "label": {
+                "en": "Comfort temperature",
+                "fr": "Température confort",
+                "de": "Komforttemperatur",
+                "es": "Temperatura de confort"
+              }
+            },
+            {
+              "value": "eco",
+              "label": {
+                "en": "Eco temperature",
+                "fr": "Température éco",
+                "de": "Absenktemperatur",
+                "es": "Temperatura eco"
+              }
+            },
+            {
+              "value": "boost",
+              "label": {
+                "en": "Boost (valve fully open)",
+                "fr": "Boost (vanne grande ouverte)",
+                "de": "Boost (Ventil ganz offen)",
+                "es": "Boost (válvula totalmente abierta)"
+              }
+            },
+            {
+              "value": "window_open",
+              "label": {
+                "en": "\"Window open\" (valve closed)",
+                "fr": "« Fenêtre ouverte » (vanne fermée)",
+                "de": "Fenster offen (Ventil zu)",
+                "es": "«Ventana abierta» (válvula cerrada)"
+              }
+            },
+            {
+              "value": "end_boost",
+              "label": {
+                "en": "End boost and \"window open\"",
+                "fr": "Fin du boost et de « fenêtre ouverte »",
+                "de": "Boost und Fenster offen beenden",
+                "es": "Fin del boost y de «ventana abierta»"
+              }
+            }
+          ]
+        },
+        {
+          "key": "duration_minutes",
+          "type": "number",
+          "required": false,
+          "min": 1,
+          "max": 1440,
+          "label": {
+            "en": "Duration (minutes)",
+            "fr": "Durée (minutes)",
+            "de": "Dauer (Minuten)",
+            "es": "Duración (minutos)"
+          },
+          "description": {
+            "en": "For boost and \"window open\". Empty: 30 min for boost, 15 min for \"window open\". At most 1440 (24 h).",
+            "fr": "Pour le boost et « fenêtre ouverte ». Vide : 30 min de boost, 15 min de « fenêtre ouverte ». 1440 au plus (24 h).",
+            "de": "Für Boost und Fenster offen. Leer: 30 min Boost, 15 min Fenster offen. Höchstens 1440 (24 h).",
+            "es": "Para el boost y «ventana abierta». Vacío: 30 min de boost, 15 min de «ventana abierta». Como máximo 1440 (24 h)."
+          }
         }
       ]
     }
   ],
   "widgets": [
     {
-      "key": "demo_status",
-      "label": { "en": "Demo status", "fr": "État de la démo" },
-      "description": {
-        "en": "Live temperature and plug power, plug connection and observed location.",
-        "fr": "Température et puissance en direct, connexion de la prise, position observée."
+      "key": "smart_home",
+      "label": {
+        "en": "FRITZ!SmartHome",
+        "fr": "FRITZ!SmartHome",
+        "de": "FRITZ!SmartHome",
+        "es": "FRITZ!SmartHome"
       },
-      "icon": "activity",
-      "action_timeout_seconds": 15
+      "description": {
+        "en": "Thermostats, plugs and their power, lamps, blinds and detectors at a glance.",
+        "fr": "Têtes thermostatiques, prises et leur puissance, lampes, volets et détecteurs d'un coup d'œil.",
+        "de": "Heizkörperregler, Steckdosen mit Leistung, Lampen, Rollläden und Melder auf einen Blick.",
+        "es": "Termostatos, enchufes y su potencia, lámparas, persianas y detectores de un vistazo."
+      },
+      "icon": "thermometer",
+      "action_timeout_seconds": 15,
+      "settings": [
+        {
+          "key": "devices",
+          "type": "multi_select",
+          "source": "devices",
+          "required": false,
+          "label": {
+            "en": "Devices shown",
+            "fr": "Appareils affichés",
+            "de": "Angezeigte Geräte",
+            "es": "Dispositivos mostrados"
+          },
+          "description": {
+            "en": "Empty: the devices you added, else every device of the box (10 rows at most).",
+            "fr": "Vide : les appareils ajoutés, sinon tous ceux de la box (10 lignes au plus).",
+            "de": "Leer: die hinzugefügten Geräte, sonst alle Geräte der Box (höchstens 10 Zeilen).",
+            "es": "Vacío: los dispositivos añadidos, si no todos los de la box (10 filas como máximo)."
+          }
+        }
+      ]
     }
   ]
 }

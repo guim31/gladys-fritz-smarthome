@@ -16,7 +16,7 @@ its only runtime dependency. It started from the official JavaScript template.
 ```bash
 npm install
 npm test                                  # node --test, the built-in runner
-node --test test/devices.test.js          # one file
+node --test test/hub.test.js              # one file
 node --test --test-name-pattern "plug"    # tests whose name matches
 npm run lint                              # ESLint
 npm run format:check                      # Prettier, as the CI runs it
@@ -32,15 +32,21 @@ pushing.
 
 ```
 index.js                          SDK wiring only: handlers registered before connect()
-src/devices/index.js              registry of the device blueprints + dispatch helpers
-src/devices/<type>.js             one device type per file (buildDevice, onPoll, onSetValue...)
+src/app.js                        registers every SDK handler on the hub (tests use the same wiring)
+src/hub.js                        session, read cycle, states, scene events, commands, widget view
+src/aha/client.js                 AHA-HTTP client: login_sid.lua, homeautoswitch.lua, error kinds
+src/aha/login.js                  PBKDF2 / MD5 challenge answers
+src/aha/devicelist.js             getdevicelistinfos → plain objects (functionbitmask, units)
+src/aha/xml.js, src/aha/http.js   small XML reader; the one place that opens HTTP connections
+src/devices.js                    Gladys devices, features, values; names in four languages
+src/discovery.js                  SSDP answers relayed by the core (box without an address)
 src/scenes.js                     scene action handlers (manifest `scene_actions`)
 src/widgets.js                    dashboard widget handlers (manifest `widgets`)
+src/messages.js                   texts sent from the container, four languages
 src/config.js                     DEFAULT_CONFIG (mirrors the manifest defaults) + normalization
-src/weather.js                    example driver (Open-Meteo)
 gladys-assistant-integration.json manifest: name, config_schema, actions, image...
-docs/en.md, docs/fr.md            user documentation, re-hosted by Gladys (mandatory)
-test/                             node --test, against the SDK's fake Gladys (integration-sdk/testing)
+docs/{en,fr,de,es}.md             user documentation, re-hosted by Gladys (same sections)
+test/                             node --test, against the SDK's fake Gladys and test/helpers/fakeBox.js
 .github/scripts/release.mjs       release helpers (manifest bump, changelog), tested in test/
 ```
 
@@ -70,8 +76,10 @@ test/                             node --test, against the SDK's fake Gladys (in
   `type: "provider"`: 5.1.0). `test/manifest.test.js` ties the manifest to the
   code (defaults, action, scene and widget handlers): change both sides
   together.
-- **User-facing text** is bilingual (English and French): action messages,
-  manifest texts, and `docs/en.md` / `docs/fr.md`, kept in sync.
+- **User-facing text** exists in English, French, German ("du") and Spanish
+  ("usted"): action messages, manifest texts, feature names, widget texts, and
+  `docs/en.md`, `docs/fr.md`, `docs/de.md`, `docs/es.md`, kept in sync
+  (`test/i18n.test.js`).
 - **Style.** Prettier formats, ESLint catches mistakes. Comments explain why,
   in English. Tests never touch the network.
 
@@ -233,3 +241,32 @@ long, et sur un « Sie »/« Ihr… » de politesse en allemand. Le store exige 
 - Docs `en`, `fr`, `de`, `es` avec les mêmes sections.
 - Chauffe, ouverture, sécurité : ne rien rendre pilotable « comme un thermostat » ou par un assistant
   vocal quand une erreur serait dangereuse (leçon d'OctoPrint).
+
+## FRITZ!SmartHome (AHA-HTTP) : ce qu'il faut savoir
+
+- **Périmètre** : les appareils domotiques DECT de la box. Internet, Wi-Fi invités, présence et
+  appels restent à `gladys-fritzbox` (TR-064) : ne pas les ajouter ici.
+- **Login** (`/login_sid.lua?version=2`) : défi PBKDF2 `2$iter1$salt1$iter2$salt2` (FRITZ!OS 7.24+) ou
+  MD5 sur UTF-16LE de `défi-motdepasse` (caractères > U+00FF remplacés par un point). Les exemples
+  du document AVM « Session IDs » sont figés dans `test/login.test.js`. La réponse liste les droits
+  (`<Rights><Name>HomeAuto</Name>…`) : sans `HomeAuto`, la session est fermée et l'utilisateur
+  prévenu. `BlockTime` > 0 : la box bloque, attendre sans renvoyer de mot de passe. Session de 20 min
+  d'inactivité ; un 403 sur `homeautoswitch.lua` = session expirée, un seul nouveau login.
+- **Identifiants** : `external_id` = `ext:<selector>:dect:<AIN sans espace>` (`116570000101`,
+  `116570000110-1` pour une unité HAN-FUN). Le parent HAN-FUN (bit 0 seul) n'a rien à publier ; les
+  groupes (`<group>`, `grp…`) et les modèles ne sont pas publiés (doublons).
+- **Unités de la box** : puissance en mW, énergie en Wh, tension en mV, température en 0,1 °C
+  (décalage inclus), `tsoll`/`tist` en demi-degrés, 253 = arrêt, 254 = marche permanente (jamais
+  envoyé : la vanne resterait ouverte). Volet : `levelpercentage` = fermeture, la position Gladys
+  est `100 - levelpercentage` (100 = ouvert, comme Zigbee2MQTT et HA). Humidité -9999 = invalide.
+- **Fenêtre ouverte** de la tête : publiée en `opening-sensor` (0 = ouvert), c'est le mode de la
+  tête (vanne fermée), pas un vrai contact.
+- **Boutons** : seul `lastpressedtimestamp` par touche ; un appui est vu à la lecture suivante, deux
+  appuis entre deux lectures n'en font qu'un, la première lecture fixe la référence (aucun
+  déclencheur rejoué au démarrage). FRITZ!DECT 400 : deux entrées (court puis long), à confirmer
+  sur un vrai appareil.
+- **Thermostat bloqué** (`lock`), **été** (`summeractive`) ou **vacances** (`holidayactive`) :
+  commandes refusées avec un message, comme Home Assistant. `thermostat/mode` existe depuis le
+  cœur 5.1.0 ; `max: 1` limite le front à arrêt/chauffe.
+- **Simulateur** : `test/helpers/fakeBox.js` applique les commandes à la liste XML et vérifie le
+  login ; `serve()` l'expose en HTTP pour l'essai manuel en conteneur verrouillé.

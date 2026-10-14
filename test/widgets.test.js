@@ -1,77 +1,82 @@
+// -----------------------------------------------------------------------------
+// The `smart_home` widget: valid for the core (budget, references), the right
+// devices, readable rows.
+// -----------------------------------------------------------------------------
+
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { validateWidgetContent } from '@gladysassistant/integration-sdk';
-import { createFakeGladys } from '@gladysassistant/integration-sdk/testing';
-import { buildDiscoveredDevices } from '../src/devices/index.js';
-import { simulateLanSession } from '../src/devices/plug.js';
-import { DEMO_STATUS_WIDGET, WIDGETS, refreshWidgets } from '../src/widgets.js';
-import { normalizeConfig } from '../src/config.js';
+import { MAX_STATUS_ROWS } from '../src/widgets.js';
+import { CONFIG, create, createWorld, discovered } from './helpers/world.js';
 
-const gladys = createFakeGladys();
-const config = normalizeConfig();
-const demoStatus = WIDGETS[DEMO_STATUS_WIDGET];
+const get = async (world, settings = {}, language = 'en') => {
+  const ack = await world.fake.widgetGet('smart_home', { settings, language });
+  assert.equal(ack.success, true, ack.error);
+  validateWidgetContent(ack.data.content);
+  return ack.data.content;
+};
 
-// What the SDK passes to onWidgetGet, plus the config index.js adds.
-const getContent = (cfg = config) =>
-  demoStatus.get(gladys, { settings: {}, language: 'en', units: 'metric', config: cfg });
-
-test('the demo_status content is rendered exactly as sent', async () => {
-  // [] = nothing the core would drop, truncate or trim to the content budget.
-  assert.deepEqual(validateWidgetContent(await getContent()), []);
-});
-
-test('the degraded plug connection content is valid too', async () => {
-  simulateLanSession(false);
-  try {
-    const content = await getContent();
-    assert.deepEqual(validateWidgetContent(content), []);
-    const status = content.components.find((component) => component.type === 'status');
-    assert.ok(
-      status.items.some((item) => item.color === 'warning'),
-      'degraded shows a warning',
-    );
-  } finally {
-    simulateLanSession(true);
-  }
-});
-
-test('the live tiles reference features the integration publishes', async () => {
-  const featureIds = new Set(
-    buildDiscoveredDevices(gladys, config).flatMap((device) =>
-      device.features.map((feature) => feature.external_id),
-    ),
-  );
-  const liveTiles = (await getContent()).components.filter((c) => c.device_feature);
-  assert.ok(liveTiles.length > 0, 'the template demonstrates a device-bound tile');
-  for (const tile of liveTiles) {
-    assert.ok(featureIds.has(tile.device_feature), `unknown feature ${tile.device_feature}`);
-  }
-});
-
-test('every button action of the content is handled and answers a short toast', async () => {
-  const buttons = (await getContent()).components.filter((c) => c.type === 'button' && c.action);
-  assert.ok(buttons.length > 0, 'the template demonstrates a widget action');
-  for (const { action } of buttons) {
-    const message = await demoStatus.action(gladys, {
-      actionKey: action.key,
-      params: action.params ?? {},
-      settings: {},
-      config,
-    });
-    assert.ok(message.en, 'the toast carries at least the mandatory `en` text');
-    assert.ok(message.en.length <= 200, 'toasts are capped at 200 characters');
-  }
-});
-
-test('an unknown widget action fails, so the user sees the error', async () => {
-  await assert.rejects(
-    demoStatus.action(gladys, { actionKey: 'unknown', params: {}, settings: {}, config }),
-    /Unknown widget action/,
+test('every device of the box when none is added: tiles and ten rows, thermostats first', async (t) => {
+  const world = await createWorld();
+  t.after(() => world.app.stop());
+  const content = await get(world);
+  const [power, heating, windows, status] = content.components;
+  assert.deepEqual(power, { type: 'value', value: '1 W', label: 'Plugs', icon: 'zap' });
+  assert.deepEqual(heating, {
+    type: 'value',
+    value: '3 / 4',
+    label: 'Heating',
+    icon: 'thermometer',
+  });
+  assert.deepEqual(windows, { type: 'value', value: 1, label: 'Windows open', icon: 'wind' });
+  assert.equal(status.items.length, MAX_STATUS_ROWS);
+  assert.deepEqual(
+    status.items.slice(0, 5).map((row) => [row.label, row.value]),
+    [
+      ['Badezimmer', '20.5 °C → 18 °C · battery low'],
+      ['Kitchen', 'Out of reach'],
+      ['Wohnzimmer', '26.5 °C · Boost'],
+      ['Wohnzimmer Couch', '22 °C → 21.5 °C'],
+      ['Steckdose', 'On · 1 W'],
+    ],
   );
 });
 
-test('refreshWidgets nudges every widget', () => {
-  const fresh = createFakeGladys();
-  refreshWidgets(fresh);
-  assert.deepEqual(fresh.fake.widgetRefreshes, Object.keys(WIDGETS));
+test('the added devices, or the chosen ones; French numbers', async (t) => {
+  const world = await createWorld({ config: { ...CONFIG, language: 'fr' } });
+  t.after(() => world.app.stop());
+  await create(world, discovered(world, 'Rollladen'));
+  await create(world, discovered(world, 'Fenster'));
+  const added = await get(world, {}, 'fr');
+  assert.deepEqual(
+    added.components.at(-1).items.map((row) => [row.label, row.value]),
+    [
+      ['Rollladen', 'Ouvert 1 %'],
+      ['Fenster', 'Ouvert'],
+    ],
+  );
+  const chosen = await get(
+    world,
+    { devices: [discovered(world, 'Wohnzimmer Couch').external_id] },
+    'fr',
+  );
+  assert.deepEqual(chosen.components.at(-1).items[0].value, '22 °C → 21,5 °C');
+});
+
+test('not connected: a single text', async (t) => {
+  const world = await createWorld({ config: { ...CONFIG, password: 'wrong' } });
+  t.after(() => world.app.stop());
+  const content = await get(world, {}, 'de');
+  assert.equal(content.components.length, 1);
+  assert.match(content.components[0].text, /Keine Verbindung/);
+});
+
+test('no device in the box: a single text', async (t) => {
+  const world = await createWorld({
+    box: { xml: '<?xml version="1.0"?><devicelist version="1"></devicelist>' },
+  });
+  t.after(() => world.app.stop());
+  const content = await get(world, {}, 'es');
+  assert.equal(content.components.length, 1);
+  assert.match(content.components[0].text, /Todavía no hay/);
 });

@@ -1,61 +1,202 @@
-# Demo Devices Template
+# FRITZ!SmartHome
 
-This is the user documentation of the integration. Gladys re-hosts this file
-and shows a permanent **Documentation** link to it in the Configuration screen
-(in the user's language, with English as the fallback) — it is when
-configuring that the user needs it most. Keep the short onboarding hints in
-the `section` blocks of the manifest `config_schema`; put the long
-step-by-step (screenshots, troubleshooting…) here.
+Connect the AVM smart home devices of your FRITZ!Box to Gladys: FRITZ!DECT 200 and 210 plugs
+(on/off, power, energy), FRITZ!DECT 301 and 302 and Comet DECT radiator thermostats (target
+temperature, heating on/off, measured temperature, battery, open window, boost), blinds on DECT ULE
+(Rollotron), FRITZ!DECT 500 lamps, HAN-FUN detectors, and the FRITZ!DECT 400 and 440 buttons as
+scene triggers. Everything stays on your local network: the integration talks to the box through
+its **AHA-HTTP interface**, documented by AVM. No cloud, no MyFRITZ! account.
+
+This integration does not replace the **FRITZ!Box** integration (internet, guest Wi-Fi, presence,
+phone calls): the two complement each other and can run side by side.
+
+> **Developed without the hardware: feedback welcome.** The integration is covered by automated
+> tests built on real answers of FRITZ!Boxes (collected by the pyfritzhome library), with the
+> login methods of AVM checked against its own examples, but it has not run against a real box
+> yet. Tell us on the Gladys forum how it works with your devices.
 
 ## What you get
 
-Six demo devices show up after installation: a weather station (real data
-from Open-Meteo), a switch, a dimmable light, a smart plug with power
-metering, a motion sensor and a camera.
+- **One Gladys device per smart home device of the box**, with the features it has (see
+  [Devices](#devices)): switch and meter of a plug, target temperature and heating mode of a
+  thermostat, position of a blind, light, brightness and colour of a lamp, state of a detector,
+  temperature, humidity and battery.
+- **A dashboard widget**: power drawn by the plugs, thermostats heating, open windows, and one line
+  per device.
+- **Three scene triggers**: a FRITZ!DECT button pressed (which button, short or long press), a
+  thermostat detecting an open window, a battery turning low.
+- **A scene action**: put a thermostat on its comfort or eco temperature, start a boost or the
+  "window open" mode for a while, or end them.
+
+## Requirements
+
+- A FRITZ!Box with FRITZ!OS 7 or later (FRITZ!OS 7.24 or later recommended: secure PBKDF2 login)
+  and smart home devices paired with it (Smart Home > Devices).
+- A FRITZ!Box user with the **Smart Home** right.
+- Gladys Assistant 5.1.0 or later.
+- Gladys on the same local network as the box.
 
 ## Configuration
 
-1. Open the **Configuration** tab of the integration.
-2. Set the **latitude** and **longitude** the demo weather station should
-   observe (they default to Paris), and pick your temperature unit.
-   The **refresh interval** sets how often the weather station and the
-   plug's power are read: every 5 minutes by default, every minute at most.
-3. Save: the devices appear in the **Discovery** tab, ready to be added.
+### Prepare the FRITZ!Box
 
-The **Prefer the local connection** toggle drives the demo plug: it reports
-the channel it actually uses as a badge (local or cloud), with an orange dot
-when it runs degraded (local refused, cloud fallback).
+1. Open the interface of the box (http://fritz.box).
+2. In **System > FRITZ!Box Users**, create a user for Gladys (e.g. `gladys`) with a strong
+   password, and tick the **Smart Home** right. Other rights are not needed.
+3. Make sure your devices show in **Smart Home > Devices**.
 
-## Actions
+### Settings
 
-- **Test the weather provider** — performs a live request to Open-Meteo and
-  shows the current temperature and humidity under the button.
-- **Identify a device** — pick one of your devices in the list and it will
-  signal itself (the demo light "blinks" in the logs).
+| Setting                   | Description                                                                                     |
+| ------------------------- | ----------------------------------------------------------------------------------------------- |
+| **Address**               | IP address or name of the box. Empty: it is searched on the network (SSDP), then `fritz.box`.   |
+| **User name**             | the user created above.                                                                         |
+| **Password**              | its password, stored by Gladys, never written in the logs.                                      |
+| **Encrypted (HTTPS)**     | port 443 instead of 80. The box's own certificate is not checked.                               |
+| **Refresh interval**      | how often the devices are read: 10 s, 30 s (default), 1 min or 2 min. Button presses follow it. |
+| **Language of the names** | language of the feature names of the devices you add, and of the messages (French by default).  |
 
-## Scenes
+Run **Test the connection**: it logs in, counts the devices and lists them in the Discover tab.
 
-The integration adds its own cards to the scene editor (Gladys 5.1 or
-later), under the **Integrations** category:
+### Add your devices
 
-- **Motion detected** (trigger) — starts the scene when a demo motion sensor
-  sees something move. Optionally pick the sensor and what moved (person,
-  animal); left empty, any detection matches. The following actions can
-  read what moved with `{{triggerEvent.data.target}}`.
-- **Identify a device** (action) — makes the chosen device signal itself.
-  It returns whether the device could signal itself, so the following
-  actions can depend on it.
+Open the **Discover** tab of the integration and add the devices you want. A device out of reach
+of the box is proposed too (it shows its values once it is back). A device paired later shows at
+the next read.
 
-## Dashboard
+## Devices
 
-Add the **Demo status** widget to a dashboard: it shows the live
-temperature of the weather station and the power of the office plug, the
-connection the plug currently uses (orange when degraded) and the observed
-location. Its **Identify the light** button makes the demo light signal
-itself.
+Every device is read by the integration itself, at the refresh interval: one request to the box
+for all the devices. Only the values that changed are sent to Gladys.
+
+### Plugs
+
+FRITZ!DECT 200, 210 and HAN-FUN plugs of other brands:
+
+| Feature               | Type in Gladys     | Notes                                   |
+| --------------------- | ------------------ | --------------------------------------- |
+| **Power**             | switch             | on/off, controllable                    |
+| **Power consumption** | power, in W        |                                         |
+| **Energy**            | energy, in kWh     | total measured by the plug              |
+| **Voltage**           | voltage, in V      | when the box reports it                 |
+| **Temperature**       | temperature, in °C | measured by the plug, offset of the box |
+
+A plug locked in the box ("switching lock") refuses the commands, with a message.
+
+### Radiator thermostats
+
+FRITZ!DECT 301, 302 and Comet DECT:
+
+| Feature                       | Type in Gladys                | Notes                                                         |
+| ----------------------------- | ----------------------------- | ------------------------------------------------------------- |
+| **Target temperature**        | thermostat setpoint, in °C    | controllable, **8 to 28 °C** in half degrees                  |
+| **Heating**                   | thermostat mode (off/heating) | off closes the valve; heating returns to the weekly programme |
+| **Window (open window mode)** | opening sensor                | "open" while the thermostat keeps its valve closed            |
+| **Boost**                     | input (on/off)                | on during a boost                                             |
+| **Temperature**               | temperature, in °C            | measured                                                      |
+| **Battery**                   | battery, in %                 |                                                               |
+
+Commands are **bounded on purpose**: a target below 8 °C or above 28 °C is brought back into this
+range, and "heating" goes back to the comfort or eco temperature of the programme set in the box,
+never to the permanent "on" (valve open whatever the temperature). A thermostat locked in the box,
+in summer mode or following the holiday programme refuses the commands, with a message. The
+window and boost features exist on recent thermostats only (not on the first Comet DECT).
+
+### Blinds
+
+Rollotron and other blinds on DECT ULE / HAN-FUN:
+
+| Feature      | Type in Gladys    | Notes                                |
+| ------------ | ----------------- | ------------------------------------ |
+| **Position** | blind position, % | 100 = open, 0 = closed; controllable |
+| **Blind**    | blind state       | open, stop, close                    |
+
+### Lamps
+
+FRITZ!DECT 500 and other HAN-FUN lamps:
+
+| Feature        | Type in Gladys   | Notes                                                 |
+| -------------- | ---------------- | ----------------------------------------------------- |
+| **Light**      | light on/off     | controllable                                          |
+| **Brightness** | brightness, in % | controllable                                          |
+| **Color**      | colour           | controllable (FRITZ!OS 7.39 or later); empty in white |
+
+### Detectors
+
+HAN-FUN detectors paired with the box: a door or window contact is an **opening sensor**, a smoke
+detector a **smoke sensor**, a motion detector a **motion sensor**, a water detector a **leak
+sensor**; others an **input** (on = alarm).
+
+### Buttons and sensors
+
+The FRITZ!DECT 400 and 440 buttons show their **battery** (and the **temperature** and
+**humidity** measured by the 440). Their presses are the [Button pressed](#scene-triggers)
+trigger. A FRITZ!DECT repeater shows its temperature.
+
+## Dashboard widget
+
+**FRITZ!SmartHome**: three tiles (power drawn by the plugs, thermostats heating out of all, open
+windows), then up to ten lines: thermostats (measured → target temperature, or off, boost, open
+window, summer, holiday), plugs (on and power), lamps, blinds, detectors, a low battery, a device
+out of reach. Settings: the devices to show; empty, the devices you added (or all the devices of
+the box if none is added yet). The widget is read-only: control the devices from their own
+dashboard boxes or from scenes.
+
+## Scene triggers
+
+| Trigger                       | Filters (optional)                                                                          | Variables                                  |
+| ----------------------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| **FRITZ!DECT button pressed** | button device, which button (400, or one of the four of the 440), short or long press (400) | device name, button, press                 |
+| **Open window detected**      | thermostat                                                                                  | device name, minutes before it heats again |
+| **Battery low**               | device                                                                                      | device name, battery level (%)             |
+
+The box gives the time of the last press of each button: the integration sees a press at its next
+read (10 s to 2 min later, see the refresh interval), and two presses of the same button between
+two reads count as one. The events seen before a start of the integration are not replayed.
+
+## Scene actions
+
+**Set a radiator thermostat**: thermostat, mode, duration.
+
+- **Comfort temperature** / **Eco temperature**: the temperatures set in the box for this
+  thermostat.
+- **Boost**: valve fully open for the duration (30 min by default).
+- **"Window open"**: valve closed for the duration (15 min by default), e.g. while you air a room.
+- **End boost and "window open"**.
+
+The duration is 24 hours at most, the box's limit: the boost and the "window open" mode always end
+by themselves.
+
+## Scene examples
+
+- **Air the bedroom**: when the window contact of the bedroom opens, "Set a radiator thermostat"
+  → "Window open" for 20 minutes; when it closes, "End boost and window open".
+- **A button for the bathroom**: when the FRITZ!DECT 400 of the bathroom is pressed (short press),
+  boost the bathroom thermostat for 30 minutes; long press, turn the towel heater plug off.
+- **Battery reminder**: when a battery turns low, send a message "Battery of
+  {{triggerEvent.data.device_name}}: {{triggerEvent.data.battery}} %".
 
 ## Troubleshooting
 
-The integration logs everything it does: check the integration logs from the
-Gladys UI (or `docker logs` on the host) with `LOG_LEVEL=debug` for the full
-detail.
+- **"refused the user name or password"**: check them in System > FRITZ!Box Users. After a
+  failure, the integration waits 15 minutes, then longer and longer up to 4 hours (or a change of the configuration), before trying again:
+  the box blocks logins for longer and longer after failed attempts.
+- **"blocks logins for … s"**: the box refuses logins after failed attempts; the integration waits.
+- **"lacks the Smart Home right"**: tick it for the user in System > FRITZ!Box Users.
+- **"No FRITZ!Box found"**: enter the address of the box in the configuration.
+- **A device shows "Out of reach"**: it lost the DECT connection with the box (battery, distance).
+- **Commands refused**: the device is locked in the box, or the thermostat is in summer or
+  holiday mode.
+- More details: set `LOG_LEVEL=debug` on the container of the integration.
+
+## Limits
+
+- **Groups** and **templates** of the box are not proposed: a group would duplicate the devices
+  it contains. Control the devices one by one, or with a Gladys scene.
+- A button press is seen at the next read of the box, not instantly; two presses between two reads
+  count as one.
+- Colour temperature (white tones) of the lamps is not offered, only the colour.
+- Thermostat holiday and summer periods, comfort and eco temperatures and the weekly programme are
+  set in the box, not from Gladys.
+- Developed without the hardware: based on the AVM documentation and on real answers collected by
+  pyfritzhome; behaviours of devices not covered by these answers may differ.
