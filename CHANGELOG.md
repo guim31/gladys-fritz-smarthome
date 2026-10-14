@@ -4,7 +4,11 @@ All notable changes to this integration are documented in this file. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 uses [semantic versioning](https://semver.org/).
 
-Describe each change under `## [Unreleased]
+Describe each change under `## [Unreleased]` as you make it. The Release
+workflow moves that section under the version it ships, and the section becomes
+the notes of the version's GitHub Release.
+
+## [Unreleased]
 
 ### Added
 
@@ -22,3 +26,5 @@ Describe each change under `## [Unreleased]
 - Scene action: set a radiator thermostat (comfort, eco, boost or "window open" for a while, end).
 - Dashboard widget: plugs' power, thermostats heating, open windows, one line per device.
 - Documentation in English, French, German and Spanish.
+
+[Unreleased]: https://github.com/guim31/gladys-fritz-smarthome/commits/main
