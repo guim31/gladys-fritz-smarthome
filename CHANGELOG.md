@@ -10,6 +10,8 @@ the notes of the version's GitHub Release.
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-10-14
+
 ### Added
 
 - First version: the smart home devices of a FRITZ!Box in Gladys, through its local AHA-HTTP
@@ -27,4 +29,5 @@ the notes of the version's GitHub Release.
 - Dashboard widget: plugs' power, thermostats heating, open windows, one line per device.
 - Documentation in English, French, German and Spanish.
 
-[Unreleased]: https://github.com/guim31/gladys-fritz-smarthome/commits/main
+[Unreleased]: https://github.com/guim31/gladys-fritz-smarthome/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/guim31/gladys-fritz-smarthome/releases/tag/v1.0.0
