@@ -37,7 +37,7 @@ test('boost and "window open" end by themselves: 30 and 15 minutes by default, 2
   assert.equal(window.last.switchcmd, 'sethkrwindowopen');
   assert.equal(window.last.endtimestamp, String(now + 45 * 60));
   const long = await run(t, { mode: 'boost', duration_minutes: 5000 });
-  assert.equal(long.last.endtimestamp, String(now + 1440 * 60));
+  assert.equal(long.last.endtimestamp, String(now + 1440 * 60 - 60), 'a minute of margin');
   await long.world.hub.cycle();
   assert.equal(long.world.box.tag(DECT301, 'boostactive'), '1');
 });
@@ -71,4 +71,16 @@ test('minutes: numbers or texts, comma accepted, bounded', () => {
   assert.equal(minutesOf(''), 0);
   assert.equal(minutesOf(-3), 0);
   assert.equal(minutesOf(99999), 1440);
+});
+
+test('"window open" started by the scene action fires no trigger (no scene loop)', async (t) => {
+  const { world } = await run(t, { mode: 'window_open' });
+  await world.hub.cycle();
+  await world.hub.cycle();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(world.box.tag(DECT301, 'windowopenactiv'), '1');
+  assert.deepEqual(
+    world.fake.sceneEvents.filter((event) => event.key === 'window_open_detected'),
+    [],
+  );
 });

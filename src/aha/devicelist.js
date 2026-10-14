@@ -117,6 +117,8 @@ export function readDevice(node) {
     functions,
     has,
     present: intOf(node, 'present') === 1,
+    // The device is still applying a command (FRITZ!OS 7.20+).
+    txbusy: intOf(node, 'txbusy') === 1,
     unitType: intOf(unit, 'unittype'),
     // Battery: on the device since FRITZ!OS 7.08, inside <hkr> before.
     battery: intOf(node, 'battery') ?? hkr?.battery ?? null,

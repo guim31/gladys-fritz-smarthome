@@ -188,8 +188,8 @@ s'arrêtent toujours d'eux-mêmes.
 ## Dépannage
 
 - **« a refusé le nom ou le mot de passe »** : vérifiez-les dans Système > Utilisateurs FRITZ!Box.
-  Après un échec, l'intégration attend 15 minutes (ou un changement de configuration) avant de
-  réessayer : la box bloque les connexions de plus en plus longtemps après des échecs.
+  Après un échec, l'intégration attend 15 minutes, puis de plus en plus longtemps jusqu'à 4 heures (ou un
+  changement de configuration), avant de réessayer : la box bloque les connexions de plus en plus longtemps après des échecs.
 - **« bloque les connexions pendant … s »** : la box refuse les connexions après des échecs ;
   l'intégration attend.
 - **« n'a pas le droit Smart Home »** : cochez-le pour l'utilisateur dans Système > Utilisateurs

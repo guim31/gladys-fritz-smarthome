@@ -18,7 +18,7 @@ export const STATUS = {
     notFound:
       'No FRITZ!Box found on the network: enter its address (e.g. 192.168.178.1) in the configuration.',
     unreachable: ({ host }) => `The FRITZ!Box does not answer at ${host}.`,
-    auth: 'The FRITZ!Box refused the user name or password. Retried in 15 minutes, or when the configuration changes.',
+    auth: 'The FRITZ!Box refused the user name or password. Retried in 15 minutes, then less and less often, or when the configuration changes.',
     blocked: ({ seconds }) =>
       `The FRITZ!Box blocks logins for ${seconds} s after failed attempts. Retried later.`,
     rights: 'The FRITZ!Box user lacks the "Smart Home" right (System > FRITZ!Box Users).',
@@ -29,7 +29,7 @@ export const STATUS = {
     notFound:
       'Aucune FRITZ!Box trouvée sur le réseau : saisissez son adresse (ex. 192.168.178.1) dans la configuration.',
     unreachable: ({ host }) => `La FRITZ!Box ne répond pas à l'adresse ${host}.`,
-    auth: 'La FRITZ!Box a refusé le nom ou le mot de passe. Nouvel essai dans 15 minutes, ou au changement de la configuration.',
+    auth: 'La FRITZ!Box a refusé le nom ou le mot de passe. Nouvel essai dans 15 minutes puis de plus en plus espacé, ou au changement de la configuration.',
     blocked: ({ seconds }) =>
       `La FRITZ!Box bloque les connexions pendant ${seconds} s après des échecs. Nouvel essai plus tard.`,
     rights:
@@ -41,7 +41,7 @@ export const STATUS = {
     notFound:
       'Keine FRITZ!Box im Netzwerk gefunden: Gib ihre Adresse (z. B. 192.168.178.1) in der Konfiguration ein.',
     unreachable: ({ host }) => `Die FRITZ!Box antwortet nicht unter ${host}.`,
-    auth: 'Die FRITZ!Box hat Benutzername oder Kennwort abgelehnt. Neuer Versuch in 15 Minuten oder bei einer Änderung der Konfiguration.',
+    auth: 'Die FRITZ!Box hat Benutzername oder Kennwort abgelehnt. Neuer Versuch in 15 Minuten, dann immer seltener, oder bei einer Änderung der Konfiguration.',
     blocked: ({ seconds }) =>
       `Die FRITZ!Box sperrt Anmeldungen nach Fehlversuchen für ${seconds} s. Neuer Versuch später.`,
     rights: 'Dem FRITZ!Box-Benutzer fehlt das Recht „Smart Home“ (System > FRITZ!Box-Benutzer).',
@@ -52,7 +52,7 @@ export const STATUS = {
     notFound:
       'No se ha encontrado ninguna FRITZ!Box en la red: introduzca su dirección (p. ej. 192.168.178.1) en la configuración.',
     unreachable: ({ host }) => `La FRITZ!Box no responde en ${host}.`,
-    auth: 'La FRITZ!Box ha rechazado el nombre o la contraseña. Nuevo intento en 15 minutos o al cambiar la configuración.',
+    auth: 'La FRITZ!Box ha rechazado el nombre o la contraseña. Nuevo intento en 15 minutos y luego cada vez más espaciado, o al cambiar la configuración.',
     blocked: ({ seconds }) =>
       `La FRITZ!Box bloquea los inicios de sesión durante ${seconds} s tras varios fallos. Nuevo intento más tarde.`,
     rights:

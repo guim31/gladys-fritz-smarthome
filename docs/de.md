@@ -184,8 +184,8 @@ immer von selbst.
 ## Fehlerbehebung
 
 - **„hat Benutzername oder Kennwort abgelehnt“**: Prüfe sie unter System > FRITZ!Box-Benutzer. Nach
-  einem Fehlschlag wartet die Integration 15 Minuten (oder eine Änderung der Konfiguration), bevor
-  sie es erneut versucht: Die Box sperrt Anmeldungen nach Fehlversuchen immer länger.
+  einem Fehlschlag wartet die Integration 15 Minuten, dann immer länger bis zu 4 Stunden (oder eine
+  Änderung der Konfiguration), bevor sie es erneut versucht: Die Box sperrt Anmeldungen nach Fehlversuchen immer länger.
 - **„sperrt Anmeldungen … s“**: Die Box lehnt Anmeldungen nach Fehlversuchen ab; die Integration
   wartet.
 - **„fehlt das Recht Smart Home“**: Setze es für den Benutzer unter System > FRITZ!Box-Benutzer.

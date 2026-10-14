@@ -179,7 +179,7 @@ by themselves.
 ## Troubleshooting
 
 - **"refused the user name or password"**: check them in System > FRITZ!Box Users. After a
-  failure, the integration waits 15 minutes (or a change of the configuration) before trying again:
+  failure, the integration waits 15 minutes, then longer and longer up to 4 hours (or a change of the configuration), before trying again:
   the box blocks logins for longer and longer after failed attempts.
 - **"blocks logins for … s"**: the box refuses logins after failed attempts; the integration waits.
 - **"lacks the Smart Home right"**: tick it for the user in System > FRITZ!Box Users.

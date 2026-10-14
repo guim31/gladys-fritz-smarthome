@@ -176,6 +176,7 @@ test('a blind: position (100 = open) and open / stop / close', async (t) => {
     await setValue(world, 'Rollladen', 'shutter', value);
     assert.deepEqual(lastCommand(world), { switchcmd: 'setblind', ain: BLIND, target });
   }
+  world.clock.advance(3000);
   await world.hub.cycle();
   assert.equal(state(world, blind, 'position'), 0, 'closed');
 });
@@ -471,4 +472,96 @@ test('stopping closes the session with the box', async (t) => {
   await world.app.stop();
   assert.equal(world.box.sessions.size, 0);
   void t;
+});
+
+test('a button back in reach does not replay its last press', async (t) => {
+  const world = await createWorld();
+  t.after(() => world.app.stop());
+  world.box.setTag('11657 0000112', 'present', 0);
+  world.box.press('11657 0000112-1', '');
+  await world.hub.cycle();
+  world.box.setTag('11657 0000112', 'present', 1);
+  world.box.press('11657 0000112-1', 1609594100);
+  await world.hub.cycle();
+  await flush();
+  assert.deepEqual(events(world, 'button_pressed'), []);
+});
+
+test('a device out of reach keeps its features: no "Update" proposed in Discover', async (t) => {
+  const world = await createWorld();
+  t.after(() => world.app.stop());
+  const before = discovered(world, 'Wohnzimmer Couch').features.map((f) => f.external_id);
+  world.box.edit(DECT301, (block) =>
+    block
+      .replace('<present>1</present>', '<present>0</present>')
+      .replace(/<windowopenactiv>0<\/windowopenactiv>/, '')
+      .replace(/<boostactive>0<\/boostactive>/, '')
+      .replace(/<battery>80<\/battery>/g, ''),
+  );
+  await world.hub.cycle();
+  assert.deepEqual(
+    discovered(world, 'Wohnzimmer Couch').features.map((f) => f.external_id),
+    before,
+  );
+});
+
+test('a device busy with a command (txbusy) or just commanded does not bounce back', async (t) => {
+  const world = await worldWithAll(t);
+  const plug = discovered(world, 'Steckdose');
+  await setValue(world, 'Steckdose', 'switch', 0);
+  // The box answered, the plug has not switched yet.
+  world.box.setTag(PLUG, 'state', 1);
+  world.box.setTag(PLUG, 'txbusy', 1);
+  world.clock.advance(5000);
+  await world.hub.cycle();
+  assert.equal(state(world, plug, 'switch'), 0);
+  world.box.setTag(PLUG, 'state', 0);
+  world.box.setTag(PLUG, 'txbusy', 0);
+  await world.hub.cycle();
+  assert.equal(state(world, plug, 'switch'), 0);
+});
+
+test('an arbitrary colour is published as the box will report it', async (t) => {
+  const world = await worldWithAll(t);
+  const bulb = discovered(world, 'FRITZ!DECT 500 Büro');
+  await setValue(world, 'FRITZ!DECT 500 Büro', 'color', 0x804020);
+  const published = state(world, bulb, 'color');
+  world.clock.advance(5000);
+  await world.hub.cycle();
+  assert.equal(state(world, bulb, 'color'), published);
+  assert.equal(
+    world.fake.states
+      .filter((s) => s.device_feature_external_id === featureId(bulb, 'color'))
+      .at(-1).state,
+    published,
+  );
+});
+
+test('found on the network: a repeater refusing the login does not hide the box', async (t) => {
+  const repeater = '192.0.2.34';
+  const world = await createWorld({ config: { ...CONFIG, host: '' }, connect: false });
+  t.after(() => world.app.stop());
+  const request = world.box.request;
+  world.hub.request = async (options) =>
+    new URL(options.url).hostname === repeater
+      ? {
+          status: 200,
+          headers: {},
+          body: '<SessionInfo><SID>0000000000000000</SID><Challenge>44b750c0</Challenge><BlockTime>0</BlockTime></SessionInfo>',
+        }
+      : request(options);
+  // The repeater answers the search first.
+  world.fake.scanResults.ssdp = [...world.fake.scanResults.ssdp].reverse();
+  await world.gladys.connect();
+  await world.app.ready;
+  assert.deepEqual(world.fake.connectionStatus, { connected: true });
+  assert.equal(world.hub.client.host, '192.0.2.1');
+});
+
+test('a scan during a read does not log in twice', async (t) => {
+  const world = await createWorld({ config: { ...CONFIG, password: 'wrong' } });
+  t.after(() => world.app.stop());
+  world.hub.authBlockedUntil = 0;
+  await Promise.all([world.hub.connectBox(), world.hub.connectBox(), world.fake.scanRequest()]);
+  assert.equal(world.box.failedLogins, 2, 'one at start, one for the three callers');
 });

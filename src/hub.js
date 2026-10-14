@@ -39,6 +39,7 @@ import {
   isPublishable,
   isThermostat,
   modeOf,
+  hsToRgb,
   rgbToHs,
   valuesOf,
 } from './devices.js';
@@ -106,6 +107,17 @@ export class Hub {
     /** @type {Map<string, object>|null} AIN key → device of the last read */
     this.devices = null;
     this.lastCycleAt = -Infinity;
+    this.connecting = null;
+    /** AIN key → until when its states are held after a command (the device applies it) */
+    this.heldUntil = new Map();
+    this.generation = 0;
+    this.authFailures = 0;
+    /** button AIN → last press time seen, kept while the device is out of reach */
+    this.lastPresses = new Map();
+    /** AIN key → feature keys ever published, so that a device never loses one */
+    this.featureKeys = new Map();
+    /** AIN key → time a scene action asked for the "window open" mode: no trigger for those. */
+    this.ownWindowOpen = new Map();
     this.cycleTimer = null;
     this.afterCommandTimer = null;
     this.refreshTimer = null;
@@ -142,6 +154,9 @@ export class Hub {
     this.config = config;
     const access = (c) => [c.host, c.username, c.password, c.https].join('\u0000');
     if (!previous || access(previous) !== access(config)) {
+      this.generation += 1;
+      this.authFailures = 0;
+      await this.connecting?.catch(() => {});
       await this.client?.logout();
       this.client = null;
       this.announced = false;
@@ -192,8 +207,16 @@ export class Hub {
    * Log in to the box: the configured address, else the one found earlier,
    * else a network search, else `fritz.box`. Resolves true once logged in.
    */
-  async connectBox() {
+  connectBox() {
+    this.connecting ??= this.doConnectBox().finally(() => {
+      this.connecting = null;
+    });
+    return this.connecting;
+  }
+
+  async doConnectBox() {
     const { config } = this;
+    const generation = this.generation;
     if (!config.username || !config.password) {
       this.client = null;
       this.problem = 'credentials';
@@ -209,9 +232,15 @@ export class Hub {
       const others = [...new Set([...found, FALLBACK_HOST])].filter(
         (host) => !candidates.includes(host),
       );
-      ({ client, error } = await this.tryHosts(others, error));
+      ({ client, error } = await this.tryHosts(others, error, true));
+    }
+    if (generation !== this.generation) {
+      // The configuration changed meanwhile: this result is stale.
+      await client?.logout();
+      return false;
     }
     if (client) {
+      this.authFailures = 0;
       this.client = client;
       this.problem = null;
       this.authBlockedUntil = 0;
@@ -242,8 +271,11 @@ export class Hub {
     switch (error?.kind) {
       case 'auth':
       case 'rights':
+        // 15 min, then 30, 60… up to 4 h: each refused login makes the box block longer.
         this.problem = error.kind;
-        this.authBlockedUntil = this.now() + this.timings.authRetryMs;
+        this.authBlockedUntil =
+          this.now() + this.timings.authRetryMs * 2 ** Math.min(this.authFailures, 4);
+        this.authFailures += 1;
         break;
       case 'blocked':
         this.problem = 'blocked';
@@ -256,7 +288,7 @@ export class Hub {
   }
 
   /** The first host that answers as a FRITZ!Box; stops at an error other than silence. */
-  async tryHosts(hosts, previousError = null) {
+  async tryHosts(hosts, previousError = null, searched = false) {
     let error = previousError;
     for (const host of hosts) {
       const client = new AhaClient({
@@ -271,7 +303,9 @@ export class Hub {
         return { client, error: null };
       } catch (err) {
         error = err;
-        if (err.kind !== 'unreachable') {
+        // A configured address stops at its answer; among the boxes found on
+        // the network, a refusal may come from a mesh repeater: try the next one.
+        if (err.kind !== 'unreachable' && !searched) {
           break;
         }
       }
@@ -330,7 +364,15 @@ export class Hub {
   }
 
   discoveredDevices() {
-    return this.publishable().map((dev) => buildDevice(this.gladys, dev, this.config.language));
+    return this.publishable().map((dev) => {
+      const key = ainKey(dev.ain);
+      const device = buildDevice(this.gladys, dev, this.config.language, this.featureKeys.get(key));
+      this.featureKeys.set(
+        key,
+        new Set(device.features.map((feature) => feature.external_id.split(':').at(-1))),
+      );
+      return device;
+    });
   }
 
   /** The discovered devices, sent when they changed (a new device, a new feature, the language). */
@@ -427,6 +469,29 @@ export class Hub {
       }
     }
     this.devices = next;
+    // Buttons: the time of the last press of each, remembered across reads and
+    // absences (an absent device answers an empty time). The first time seen
+    // is a baseline: a press before the start or during an absence is not replayed.
+    for (const dev of next.values()) {
+      if (!isButton(dev) || !dev.present) {
+        continue;
+      }
+      dev.buttons.forEach((button, index) => {
+        // Empty on a present device: never pressed.
+        const pressed = button.lastPressed ?? 0;
+        const known = this.lastPresses.get(button.ain);
+        this.lastPresses.set(button.ain, Math.max(known ?? 0, pressed));
+        if (known !== undefined && pressed > known) {
+          const { button: which, press } = buttonOf(dev, index);
+          this.fire(TRIGGERS.BUTTON_PRESSED, {
+            device: deviceIds(this.gladys, dev.ain).device,
+            device_name: dev.name,
+            button: which,
+            press,
+          });
+        }
+      });
+    }
     if (!previous) {
       return;
     }
@@ -442,21 +507,20 @@ export class Hub {
         logger.info(`${dev.name} is ${dev.present ? 'back in reach' : 'out of reach'} of the box`);
         this.requestRefresh();
       }
-      if (isButton(dev)) {
-        dev.buttons.forEach((button, index) => {
-          const last = before.buttons.find((entry) => entry.ain === button.ain)?.lastPressed;
-          if (button.lastPressed && button.lastPressed > (last ?? 0)) {
-            const { button: which, press } = buttonOf(dev, index);
-            this.fire(TRIGGERS.BUTTON_PRESSED, {
-              device,
-              device_name: deviceName,
-              button: which,
-              press,
-            });
-          }
-        });
+      // The device takes a few seconds to apply the mode: forget the request after 2 minutes.
+      if (
+        dev.hkr?.windowOpen === false &&
+        this.now() - (this.ownWindowOpen.get(key) ?? 0) > 120000
+      ) {
+        this.ownWindowOpen.delete(key);
       }
-      if (isThermostat(dev) && dev.hkr?.windowOpen === true && before.hkr?.windowOpen === false) {
+      if (
+        isThermostat(dev) &&
+        dev.hkr?.windowOpen === true &&
+        before.hkr?.windowOpen === false &&
+        // Started by our own scene action: firing would let a scene loop on itself.
+        !this.ownWindowOpen.delete(key)
+      ) {
         const end = dev.hkr.windowOpenEnd;
         this.fire(TRIGGERS.WINDOW_OPEN, {
           device,
@@ -482,7 +546,12 @@ export class Hub {
     const states = [];
     for (const dev of this.publishable()) {
       const ids = deviceIds(this.gladys, dev.ain);
-      if (!this.isCreated(ids.device)) {
+      // Busy with a command, or just commanded: the old value would bounce back.
+      if (
+        !this.isCreated(ids.device) ||
+        dev.txbusy ||
+        this.now() < (this.heldUntil.get(ainKey(dev.ain)) ?? 0)
+      ) {
         continue;
       }
       for (const [key, value] of Object.entries(valuesOf(dev))) {
@@ -560,7 +629,9 @@ export class Hub {
       if (err instanceof GladysError) {
         throw err;
       }
-      if (err.kind && err.kind !== 'invalid') {
+      // A refused login or a silent box concerns every read; a refused
+      // command (invalid, a right missing for it) concerns this one only.
+      if (err.kind === 'auth' || err.kind === 'unreachable') {
         await this.noteReadFailure(err);
       }
       throw new GladysError(
@@ -572,6 +643,7 @@ export class Hub {
 
   /** Publish what a command set, then read the device again a few seconds later. */
   async confirm(dev, key, value) {
+    this.heldUntil.set(ainKey(dev.ain), this.now() + this.timings.afterCommandMs - 1);
     const id = deviceIds(this.gladys, dev.ain).feature(key);
     if (this.isCreated(deviceIds(this.gladys, dev.ain).device)) {
       await this.gladys
@@ -616,7 +688,8 @@ export class Hub {
       const { hue, saturation } = rgbToHs(number);
       await this.command(() => client.setUnmappedColor(dev.ain, hue, saturation));
       logger.info(`${dev.name} colour changed`);
-      await this.confirm(dev, key, Math.round(number));
+      // What the box will report: the colour at full value.
+      await this.confirm(dev, key, hsToRgb(hue, saturation));
       return;
     }
     if (key === 'position' && isBlind(dev)) {
@@ -696,19 +769,31 @@ export class Hub {
     }
     // The next switch goes to comfort: we are in an eco period.
     const eco = dev.hkr.comfort !== null && dev.hkr.nextTarget === dev.hkr.comfort * 2;
-    return this.setTarget(dev, (eco ? dev.hkr.eco : dev.hkr.comfort) ?? 20);
+    const target = eco ? dev.hkr.eco : dev.hkr.comfort;
+    if (target === null) {
+      throw this.fail('failed', dev);
+    }
+    return this.setTarget(dev, target);
   }
 
   /** The "Set a thermostat mode" scene action. */
   async thermostatAction(externalId, mode, minutes) {
     const dev = this.thermostatOf(this.deviceOf(externalId));
     const client = this.client;
-    const until = (duration) => Math.floor(this.now() / 1000) + duration * 60;
+    // 24 hours at most for the box, measured on its clock: keep a minute of margin.
+    const until = (duration) =>
+      Math.floor(this.now() / 1000) + Math.min(duration * 60, MAX_MINUTES * 60 - 60);
     switch (mode) {
       case 'comfort':
-        return this.setTarget(dev, dev.hkr.comfort ?? 20);
+        if (dev.hkr.comfort === null) {
+          throw this.fail('failed', dev);
+        }
+        return this.setTarget(dev, dev.hkr.comfort);
       case 'eco':
-        return this.setTarget(dev, dev.hkr.eco ?? 16);
+        if (dev.hkr.eco === null) {
+          throw this.fail('failed', dev);
+        }
+        return this.setTarget(dev, dev.hkr.eco);
       case 'boost': {
         const duration = minutes || DEFAULT_MINUTES.boost;
         await this.command(() => client.setBoost(dev.ain, until(duration)));
@@ -717,6 +802,7 @@ export class Hub {
       }
       case 'window_open': {
         const duration = minutes || DEFAULT_MINUTES.window_open;
+        this.ownWindowOpen.set(ainKey(dev.ain), this.now());
         await this.command(() => client.setWindowOpen(dev.ain, until(duration)));
         logger.info(`${dev.name} window open mode for ${duration} min`);
         break;

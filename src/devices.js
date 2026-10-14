@@ -280,7 +280,7 @@ const control = (key, category, type, extra = {}) => ({
 });
 
 /** The features of a device, without names nor external ids. */
-export function featureSpecs(dev) {
+export function featureSpecs(dev, known = new Set()) {
   const specs = [];
   if (isPlug(dev)) {
     specs.push(control('switch', CATEGORIES.SWITCH, TYPES.SWITCH.BINARY));
@@ -296,7 +296,7 @@ export function featureSpecs(dev) {
         max: MAX_ENERGY_KWH,
       }),
     );
-    if (dev.meter.hasVoltage) {
+    if (dev.meter.hasVoltage || known.has('voltage')) {
       specs.push(
         sensor('voltage', CATEGORIES.SWITCH, TYPES.SWITCH.VOLTAGE, {
           unit: UNITS.VOLT,
@@ -315,7 +315,8 @@ export function featureSpecs(dev) {
         }),
       );
     }
-    if (dev.has(FUNCTIONS.COLOR)) {
+    // Free colours only (setunmappedcolor): a lamp without them has no colour feature.
+    if (dev.has(FUNCTIONS.COLOR) && (dev.color?.fullColor || known.has('color'))) {
       specs.push(control('color', CATEGORIES.LIGHT, TYPES.LIGHT.COLOR, { max: 0xffffff }));
     }
   }
@@ -346,10 +347,10 @@ export function featureSpecs(dev) {
         max: MODE.HEATING,
       }),
     );
-    if (dev.hkr?.windowOpen !== null && dev.hkr?.windowOpen !== undefined) {
+    if ((dev.hkr?.windowOpen ?? null) !== null || known.has('window')) {
       specs.push(sensor('window', CATEGORIES.OPENING_SENSOR, TYPES.SENSOR.BINARY));
     }
-    if (dev.hkr?.boost !== null && dev.hkr?.boost !== undefined) {
+    if ((dev.hkr?.boost ?? null) !== null || known.has('boost')) {
       specs.push(sensor('boost', CATEGORIES.INPUT, TYPES.SENSOR.BINARY));
     }
   }
@@ -373,7 +374,7 @@ export function featureSpecs(dev) {
       }),
     );
   }
-  if (dev.hasBattery) {
+  if (dev.hasBattery || known.has('battery')) {
     specs.push(
       sensor('battery', CATEGORIES.BATTERY, TYPES.BATTERY.INTEGER, {
         unit: UNITS.PERCENT,
@@ -398,8 +399,9 @@ function featureName(dev, key, language) {
  * @param {object} gladys
  * @param {object} dev a device of parseDeviceList
  * @param {string} language language of the feature names
+ * @param {Set<string>} [known] feature keys published earlier for this device: never dropped
  */
-export function buildDevice(gladys, dev, language = 'fr') {
+export function buildDevice(gladys, dev, language = 'fr', known = undefined) {
   const ids = deviceIds(gladys, dev.ain);
   const params = [{ name: 'AIN', value: dev.ain }];
   if (dev.firmware) {
@@ -411,7 +413,7 @@ export function buildDevice(gladys, dev, language = 'fr') {
     model: dev.productName || 'FRITZ!SmartHome',
     should_poll: false,
     params,
-    features: featureSpecs(dev).map(({ key, ...spec }) => ({
+    features: featureSpecs(dev, known).map(({ key, ...spec }) => ({
       name: featureName(dev, key, language),
       external_id: ids.feature(key),
       ...spec,

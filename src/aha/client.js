@@ -146,7 +146,10 @@ export class AhaClient {
       const sid = this.sid ?? (await this.login());
       const response = await this.get(AHA_PATH, { switchcmd, sid, ain, ...params });
       if (response.status === 403 || response.status === 401) {
-        this.sid = null;
+        // Another caller may have logged in again meanwhile: keep its session.
+        if (this.sid === sid) {
+          this.sid = null;
+        }
         continue;
       }
       if (response.status === 400) {

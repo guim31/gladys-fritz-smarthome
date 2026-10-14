@@ -186,8 +186,8 @@ siempre terminan solos.
 ## Solución de problemas
 
 - **«ha rechazado el nombre o la contraseña»**: compruébelos en Sistema > Usuarios de FRITZ!Box.
-  Tras un fallo, la integración espera 15 minutos (o un cambio de configuración) antes de volver a
-  intentarlo: la box bloquea los inicios de sesión cada vez más tiempo tras varios fallos.
+  Tras un fallo, la integración espera 15 minutos, después cada vez más hasta 4 horas (o un cambio de
+  configuración), antes de volver a intentarlo: la box bloquea los inicios de sesión cada vez más tiempo tras varios fallos.
 - **«bloquea los inicios de sesión durante … s»**: la box rechaza los inicios de sesión tras varios
   fallos; la integración espera.
 - **«le falta el permiso Smart Home»**: márquelo para el usuario en Sistema > Usuarios de
