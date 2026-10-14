@@ -1,67 +1,214 @@
-# Template de démonstration
+# FRITZ!SmartHome
 
-Ceci est la documentation utilisateur de l'intégration. Gladys ré-héberge ce
-fichier et affiche un lien **Documentation** permanent vers lui dans l'écran
-de configuration (dans la langue de l'utilisateur, avec l'anglais en repli) —
-c'est au moment de configurer que l'utilisateur en a le plus besoin. Gardez
-les courtes indications d'accueil dans les blocs `section` du `config_schema`
-du manifest ; mettez ici le pas-à-pas détaillé (captures d'écran, dépannage…).
+Reliez à Gladys les appareils domotiques AVM de votre FRITZ!Box : prises FRITZ!DECT 200 et 210
+(marche/arrêt, puissance, énergie), têtes thermostatiques FRITZ!DECT 301 et 302 et Comet DECT
+(consigne, chauffage marche/arrêt, température mesurée, batterie, fenêtre ouverte, boost), volets
+en DECT ULE (Rollotron), lampes FRITZ!DECT 500, détecteurs HAN-FUN, et les boutons FRITZ!DECT 400 et
+440 comme déclencheurs de scène. Tout reste sur votre réseau local : l'intégration parle à la box
+par son **interface AHA-HTTP**, documentée par AVM. Pas de cloud, pas de compte MyFRITZ!.
+
+Cette intégration ne remplace pas l'intégration **FRITZ!Box** (internet, Wi-Fi invités, présence,
+appels) : les deux se complètent et peuvent fonctionner ensemble.
+
+> **Développée sans le matériel : vos retours sont les bienvenus.** L'intégration est couverte par
+> des tests automatiques construits sur de vraies réponses de FRITZ!Box (recueillies par la
+> bibliothèque pyfritzhome), et les méthodes de connexion sont vérifiées sur les exemples d'AVM,
+> mais elle n'a pas encore tourné contre une vraie box. Dites-nous sur le forum Gladys comment elle
+> se comporte avec vos appareils.
 
 ## Ce que vous obtenez
 
-Six appareils de démonstration apparaissent après l'installation : une
-station météo (vraies données Open-Meteo), un interrupteur, une lampe
-variable, une prise connectée avec mesure de puissance, un détecteur de
-mouvement et une caméra.
+- **Un appareil Gladys par appareil Smart Home de la box**, avec les fonctionnalités qu'il possède
+  (voir [Appareils](#appareils)) : commutateur et compteur d'une prise, consigne et mode de
+  chauffage d'une tête thermostatique, position d'un volet, allumage, luminosité et couleur d'une
+  lampe, état d'un détecteur, température, humidité et batterie.
+- **Un widget de tableau de bord** : puissance des prises, têtes qui chauffent, fenêtres ouvertes,
+  et une ligne par appareil.
+- **Trois déclencheurs de scène** : un bouton FRITZ!DECT appuyé (quelle touche, appui court ou
+  long), une tête thermostatique qui détecte une fenêtre ouverte, une pile qui faiblit.
+- **Une action de scène** : mettre une tête thermostatique sur sa température confort ou éco,
+  lancer un boost ou le mode « fenêtre ouverte » pour un temps, ou y mettre fin.
+
+## Prérequis
+
+- Une FRITZ!Box sous FRITZ!OS 7 ou plus récent (FRITZ!OS 7.24 ou plus récent conseillé : connexion
+  sécurisée PBKDF2) et des appareils Smart Home appairés (Smart Home > Appareils).
+- Un utilisateur de la FRITZ!Box avec le droit **Smart Home**.
+- Gladys Assistant 5.1.0 ou plus récent.
+- Gladys sur le même réseau local que la box.
 
 ## Configuration
 
-1. Ouvrez l'onglet **Configuration** de l'intégration.
-2. Renseignez la **latitude** et la **longitude** que la station météo de
-   démonstration doit observer (Paris par défaut), et choisissez votre unité
-   de température. L'**intervalle de rafraîchissement** règle la fréquence
-   de lecture de la station météo et de la puissance de la prise : toutes
-   les 5 minutes par défaut, toutes les minutes au plus.
-3. Enregistrez : les appareils apparaissent dans l'onglet **Découverte**,
-   prêts à être ajoutés.
+### Préparer la FRITZ!Box
 
-Le réglage **Préférer la connexion locale** pilote la prise de
-démonstration : elle affiche en badge le canal réellement utilisé (local ou
-cloud), avec un point orange quand elle fonctionne en mode dégradé (local
-refusé, bascule cloud).
+1. Ouvrez l'interface de la box (http://fritz.box).
+2. Dans **Système > Utilisateurs FRITZ!Box**, créez un utilisateur pour Gladys (ex. `gladys`) avec
+   un mot de passe solide, et cochez le droit **Smart Home**. Les autres droits sont inutiles.
+3. Vérifiez que vos appareils apparaissent dans **Smart Home > Appareils**.
 
-## Actions
+### Réglages
 
-- **Tester le fournisseur météo** — effectue une requête en direct vers
-  Open-Meteo et affiche la température et l'humidité actuelles sous le
-  bouton.
-- **Identifier un appareil** — choisissez un de vos appareils dans la liste
-  et il se signale (la lampe de démonstration « clignote » dans les logs).
+| Réglage                | Description                                                                                            |
+| ---------------------- | ------------------------------------------------------------------------------------------------------ |
+| **Adresse**            | adresse IP ou nom de la box. Vide : elle est cherchée sur le réseau (SSDP), puis `fritz.box`.          |
+| **Nom d'utilisateur**  | l'utilisateur créé ci-dessus.                                                                          |
+| **Mot de passe**       | son mot de passe, gardé par Gladys, jamais écrit dans les logs.                                        |
+| **Connexion chiffrée** | port 443 au lieu de 80. Le certificat de la box n'est pas vérifié.                                     |
+| **Intervalle**         | fréquence de lecture : 10 s, 30 s (par défaut), 1 min ou 2 min. Les appuis sur les boutons la suivent. |
+| **Langue des noms**    | langue des noms de fonctionnalités des appareils ajoutés, et des messages (français par défaut).       |
 
-## Scènes
+Lancez **Tester la connexion** : elle se connecte, compte les appareils et les liste dans l'onglet
+Découverte.
 
-L'intégration ajoute ses propres cartes à l'éditeur de scènes (Gladys 5.1
-ou plus récent), dans la catégorie **Intégrations** :
+### Ajouter vos appareils
 
-- **Mouvement détecté** (déclencheur) — lance la scène quand un détecteur
-  de démonstration voit bouger quelque chose. Choisissez éventuellement le
-  détecteur et ce qui a bougé (personne, animal) ; laissés vides, toute
-  détection correspond. Les actions suivantes peuvent lire ce qui a bougé
-  avec `{{triggerEvent.data.target}}`.
-- **Identifier un appareil** (action) — fait se signaler l'appareil choisi.
-  Elle indique si l'appareil a pu se signaler, pour que les actions
-  suivantes puissent en dépendre.
+Ouvrez l'onglet **Découverte** de l'intégration et ajoutez les appareils voulus. Un appareil hors
+de portée de la box est proposé aussi (il affiche ses valeurs dès son retour). Un appareil appairé
+plus tard apparaît à la lecture suivante.
 
-## Tableau de bord
+## Appareils
 
-Ajoutez le widget **État de la démo** à un tableau de bord : il affiche en
-direct la température de la station météo et la puissance de la prise du
-bureau, la connexion utilisée par la prise (en orange si dégradée) et la
-position observée. Son bouton **Identifier la lampe** fait se signaler la
-lampe de démonstration.
+L'intégration lit elle-même les appareils, à l'intervalle choisi : une seule requête à la box pour
+tous les appareils. Seules les valeurs qui changent sont envoyées à Gladys.
+
+### Prises
+
+FRITZ!DECT 200, 210 et prises HAN-FUN d'autres marques :
+
+| Fonctionnalité          | Type dans Gladys   | Remarques                                |
+| ----------------------- | ------------------ | ---------------------------------------- |
+| **Alimentation**        | commutateur        | marche/arrêt, pilotable                  |
+| **Puissance consommée** | puissance, en W    |                                          |
+| **Énergie**             | énergie, en kWh    | total mesuré par la prise                |
+| **Tension**             | tension, en V      | quand la box la fournit                  |
+| **Température**         | température, en °C | mesurée par la prise, décalage de la box |
+
+Une prise verrouillée dans la box (« verrouillage de commutation ») refuse les commandes, avec un
+message.
+
+### Têtes thermostatiques
+
+FRITZ!DECT 301, 302 et Comet DECT :
+
+| Fonctionnalité                     | Type dans Gladys                   | Remarques                                                         |
+| ---------------------------------- | ---------------------------------- | ----------------------------------------------------------------- |
+| **Consigne**                       | consigne de thermostat, en °C      | pilotable, **de 8 à 28 °C** par demi-degré                        |
+| **Chauffage**                      | mode du thermostat (arrêt/chauffe) | arrêt ferme la vanne ; chauffe revient au programme de la semaine |
+| **Fenêtre (mode fenêtre ouverte)** | détecteur d'ouverture              | « ouvert » tant que la tête garde sa vanne fermée                 |
+| **Boost**                          | entrée (oui/non)                   | oui pendant un boost                                              |
+| **Température**                    | température, en °C                 | mesurée                                                           |
+| **Batterie**                       | batterie, en %                     |                                                                   |
+
+Les commandes sont **bornées exprès** : une consigne sous 8 °C ou au-dessus de 28 °C est ramenée
+dans cette plage, et « chauffe » revient à la température confort ou éco du programme de la box,
+jamais au « marche » permanent (vanne ouverte quelle que soit la température). Une tête verrouillée
+dans la box, en mode été ou qui suit le programme vacances refuse les commandes, avec un message.
+Les fonctionnalités fenêtre et boost n'existent que sur les têtes récentes (pas sur les premières
+Comet DECT).
+
+### Volets
+
+Rollotron et autres volets en DECT ULE / HAN-FUN :
+
+| Fonctionnalité | Type dans Gladys     | Remarques                           |
+| -------------- | -------------------- | ----------------------------------- |
+| **Position**   | position du volet, % | 100 = ouvert, 0 = fermé ; pilotable |
+| **Volet**      | état du volet        | ouvrir, arrêter, fermer             |
+
+### Lampes
+
+FRITZ!DECT 500 et autres lampes HAN-FUN :
+
+| Fonctionnalité | Type dans Gladys | Remarques                                                |
+| -------------- | ---------------- | -------------------------------------------------------- |
+| **Lumière**    | éclairage on/off | pilotable                                                |
+| **Luminosité** | luminosité, en % | pilotable                                                |
+| **Couleur**    | couleur          | pilotable (FRITZ!OS 7.39 ou plus récent) ; vide en blanc |
+
+### Détecteurs
+
+Détecteurs HAN-FUN appairés à la box : un contact de porte ou de fenêtre devient un **détecteur
+d'ouverture**, un détecteur de fumée un **capteur de fumée**, un détecteur de mouvement un
+**détecteur de mouvement**, un détecteur d'eau un **détecteur de fuite** ; les autres une
+**entrée** (oui = alarme).
+
+### Boutons et capteurs
+
+Les boutons FRITZ!DECT 400 et 440 affichent leur **batterie** (et la **température** et
+l'**humidité** mesurées par le 440). Leurs appuis sont le déclencheur
+[Bouton appuyé](#déclencheurs-de-scène). Un répéteur FRITZ!DECT affiche sa température.
+
+## Widget de tableau de bord
+
+**FRITZ!SmartHome** : trois tuiles (puissance tirée par les prises, têtes qui chauffent sur le
+total, fenêtres ouvertes), puis jusqu'à dix lignes : têtes thermostatiques (température mesurée →
+consigne, ou arrêt, boost, fenêtre ouverte, été, vacances), prises (allumée et puissance), lampes,
+volets, détecteurs, pile faible, appareil hors de portée. Réglage : les appareils à afficher ; vide,
+les appareils ajoutés (ou tous ceux de la box si aucun n'est encore ajouté). Le widget se contente
+d'afficher : pilotez les appareils depuis leurs propres boîtes du tableau de bord ou par des scènes.
+
+## Déclencheurs de scène
+
+| Déclencheur                  | Filtres (facultatifs)                                                              | Variables                                      |
+| ---------------------------- | ---------------------------------------------------------------------------------- | ---------------------------------------------- |
+| **Bouton FRITZ!DECT appuyé** | bouton, quelle touche (400, ou l'une des quatre du 440), appui court ou long (400) | nom de l'appareil, touche, appui               |
+| **Fenêtre ouverte détectée** | tête thermostatique                                                                | nom de l'appareil, minutes avant de rechauffer |
+| **Pile faible**              | appareil                                                                           | nom de l'appareil, niveau de pile (%)          |
+
+La box donne l'heure du dernier appui de chaque touche : l'intégration voit un appui à sa lecture
+suivante (10 s à 2 min plus tard, selon l'intervalle), et deux appuis sur la même touche entre deux
+lectures comptent pour un. Les événements antérieurs à un démarrage de l'intégration ne sont pas
+rejoués.
+
+## Actions de scène
+
+**Régler une tête thermostatique** : tête, mode, durée.
+
+- **Température confort** / **Température éco** : les températures réglées dans la box pour cette
+  tête.
+- **Boost** : vanne grande ouverte pendant la durée (30 min par défaut).
+- **« Fenêtre ouverte »** : vanne fermée pendant la durée (15 min par défaut), par exemple le temps
+  d'aérer.
+- **Fin du boost et de « fenêtre ouverte »**.
+
+La durée est de 24 heures au plus, la limite de la box : le boost et le mode « fenêtre ouverte »
+s'arrêtent toujours d'eux-mêmes.
+
+## Exemples de scènes
+
+- **Aérer la chambre** : quand le contact de la fenêtre de la chambre s'ouvre, « Régler une tête
+  thermostatique » → « Fenêtre ouverte » pour 20 minutes ; quand il se ferme, « Fin du boost et de
+  fenêtre ouverte ».
+- **Un bouton pour la salle de bain** : appui court sur le FRITZ!DECT 400 de la salle de bain, boost
+  de la tête de la salle de bain pendant 30 minutes ; appui long, coupure de la prise du
+  sèche-serviettes.
+- **Rappel de pile** : quand une pile faiblit, envoyer un message « Pile de
+  {{triggerEvent.data.device_name}} : {{triggerEvent.data.battery}} % ».
 
 ## Dépannage
 
-L'intégration journalise tout ce qu'elle fait : consultez les logs de
-l'intégration depuis l'interface Gladys (ou `docker logs` sur l'hôte) avec
-`LOG_LEVEL=debug` pour le détail complet.
+- **« a refusé le nom ou le mot de passe »** : vérifiez-les dans Système > Utilisateurs FRITZ!Box.
+  Après un échec, l'intégration attend 15 minutes (ou un changement de configuration) avant de
+  réessayer : la box bloque les connexions de plus en plus longtemps après des échecs.
+- **« bloque les connexions pendant … s »** : la box refuse les connexions après des échecs ;
+  l'intégration attend.
+- **« n'a pas le droit Smart Home »** : cochez-le pour l'utilisateur dans Système > Utilisateurs
+  FRITZ!Box.
+- **« Aucune FRITZ!Box trouvée »** : saisissez l'adresse de la box dans la configuration.
+- **Un appareil affiche « Hors de portée »** : il a perdu la liaison DECT avec la box (pile,
+  distance).
+- **Commandes refusées** : l'appareil est verrouillé dans la box, ou la tête est en mode été ou
+  vacances.
+- Plus de détails : réglez `LOG_LEVEL=debug` sur le conteneur de l'intégration.
+
+## Limites
+
+- Les **groupes** et les **modèles** de la box ne sont pas proposés : un groupe ferait doublon avec
+  les appareils qu'il contient. Pilotez les appareils un par un, ou par une scène Gladys.
+- Un appui sur un bouton est vu à la lecture suivante de la box, pas instantanément ; deux appuis
+  entre deux lectures comptent pour un.
+- La température de blanc des lampes n'est pas proposée, seulement la couleur.
+- Les périodes vacances et été, les températures confort et éco et le programme de la semaine se
+  règlent dans la box, pas depuis Gladys.
+- Développée sans le matériel : fondée sur la documentation d'AVM et sur de vraies réponses
+  recueillies par pyfritzhome ; le comportement d'appareils absents de ces réponses peut différer.
